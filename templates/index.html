@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>가사 영상 만들기</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f0f0f;
+      color: #e8e8e8;
+      min-height: 100vh;
+      padding: 32px 16px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 40px;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+
+    .container { max-width: 900px; margin: 0 auto; }
+
+    /* ── STEP CARD ── */
+    .step {
+      background: #1c1c1c;
+      border: 1px solid #2e2e2e;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .step-num {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: #FFD700;
+      color: #000;
+      font-weight: 800;
+      font-size: 0.85rem;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .step-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    /* ── INPUTS ── */
+    input[type="text"], input[type="url"] {
+      background: #111;
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #e8e8e8;
+      font-size: 0.95rem;
+      padding: 10px 14px;
+      outline: none;
+      width: 100%;
+      transition: border-color 0.15s;
+    }
+    input[type="text"]:focus, input[type="url"]:focus {
+      border-color: #FFD700;
+    }
+
+    .url-row { display: flex; gap: 10px; }
+    .url-row input { flex: 1; }
+
+    /* ── BUTTONS ── */
+    .btn {
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 10px 20px;
+      transition: opacity 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .btn-primary { background: #FFD700; color: #000; }
+    .btn-primary:hover:not(:disabled) { opacity: 0.88; }
+
+    .btn-ghost {
+      background: #2a2a2a;
+      color: #ccc;
+      border: 1px solid #3a3a3a;
+    }
+    .btn-ghost:hover:not(:disabled) { background: #333; }
+
+    .btn-danger { background: #c0392b; color: #fff; padding: 4px 10px; font-size: 0.8rem; }
+    .btn-danger:hover:not(:disabled) { opacity: 0.85; }
+
+    .btn-sm { padding: 6px 14px; font-size: 0.82rem; }
+
+    /* ── TABLE ── */
+    .table-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    thead th {
+      background: #222;
+      color: #aaa;
+      font-weight: 600;
+      padding: 10px 8px;
+      text-align: left;
+      border-bottom: 1px solid #333;
+    }
+    tbody tr { border-bottom: 1px solid #252525; }
+    tbody tr:hover { background: #212121; }
+    tbody td { padding: 6px 6px; vertical-align: middle; }
+
+    .td-num { color: #555; font-size: 0.78rem; width: 32px; text-align: center; }
+    .td-time { width: 100px; }
+    .td-text { }
+    .td-del { width: 40px; text-align: center; }
+
+    input.cell-time {
+      background: #161616;
+      border: 1px solid #2e2e2e;
+      border-radius: 5px;
+      color: #bbb;
+      font-size: 0.82rem;
+      font-family: monospace;
+      padding: 5px 7px;
+      width: 100%;
+    }
+    input.cell-time:focus { border-color: #FFD700; outline: none; color: #fff; }
+
+    input.cell-text {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 5px;
+      color: #e8e8e8;
+      font-size: 0.88rem;
+      padding: 5px 7px;
+      width: 100%;
+    }
+    input.cell-text:focus { border-color: #FFD700; outline: none; background: #161616; }
+
+    .add-row-btn { margin-top: 12px; }
+
+    /* ── UPLOAD ZONE ── */
+    .upload-zone {
+      border: 2px dashed #333;
+      border-radius: 10px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .upload-zone:hover, .upload-zone.drag-over {
+      border-color: #FFD700;
+      background: #1a1a00;
+    }
+    .upload-zone input[type="file"] { display: none; }
+    .upload-zone .upload-icon { font-size: 2rem; margin-bottom: 8px; }
+    .upload-zone .upload-label { color: #aaa; font-size: 0.9rem; }
+    .upload-zone .upload-filename { color: #FFD700; font-size: 0.9rem; margin-top: 6px; font-weight: 600; }
+
+    /* ── PROGRESS ── */
+    .progress-wrap { margin-top: 16px; display: none; }
+    .progress-bar-bg {
+      background: #2a2a2a;
+      border-radius: 100px;
+      height: 10px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      background: #FFD700;
+      height: 100%;
+      border-radius: 100px;
+      transition: width 0.4s ease;
+      width: 0%;
+    }
+    .progress-text {
+      color: #888;
+      font-size: 0.82rem;
+      margin-top: 8px;
+    }
+
+    /* ── DOWNLOAD ── */
+    .download-wrap { margin-top: 16px; display: none; }
+    .download-wrap a {
+      display: inline-block;
+      background: #27ae60;
+      color: #fff;
+      border-radius: 8px;
+      padding: 12px 28px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+    .download-wrap a:hover { opacity: 0.88; }
+
+    /* ── NOTICE / ERROR ── */
+    .notice {
+      border-radius: 8px;
+      font-size: 0.85rem;
+      margin-top: 10px;
+      padding: 10px 14px;
+    }
+    .notice.error { background: #2c1010; color: #e88; border: 1px solid #5a2020; }
+    .notice.info  { background: #101a2c; color: #88b; border: 1px solid #203050; }
+
+    .hidden { display: none !important; }
+
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid #555;
+      border-top-color: #FFD700;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>🎵 가사 영상 만들기</h1>
+
+  <!-- STEP 1 -->
+  <div class="step">
+    <div class="step-header">
+      <div class="step-num">1</div>
+      <div class="step-title">YouTube URL로 자막 추출</div>
+    </div>
+    <div class="url-row">
+      <input type="url" id="ytUrl" placeholder="https://www.youtube.com/watch?v=..." />
+      <button class="btn btn-primary" id="extractBtn" onclick="extractSubtitles()">자막 추출</button>
+    </div>
+    <div id="extractNotice"></div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="step" id="step2" style="display:none">
+    <div class="step-header">
+      <div class="step-num">2</div>
+      <div class="step-title">가사 편집 <span style="color:#666;font-weight:400;font-size:0.85rem">— 타이밍은 유지하고 가사 텍스트만 수정하세요</span></div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="td-num">#</th>
+            <th class="td-time">시작 (MM:SS.mmm)</th>
+            <th class="td-time">종료 (MM:SS.mmm)</th>
+            <th class="td-text">가사</th>
+            <th class="td-del"></th>
+          </tr>
+        </thead>
+        <tbody id="lyricsBody"></tbody>
+      </table>
+    </div>
+    <button class="btn btn-ghost btn-sm add-row-btn" onclick="addRow()">+ 줄 추가</button>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="step" id="step3" style="display:none">
+    <div class="step-header">
+      <div class="step-num">3</div>
+      <div class="step-title">영상 파일 업로드</div>
+    </div>
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('videoFile').click()"
+         ondragover="event.preventDefault();this.classList.add('drag-over')"
+         ondragleave="this.classList.remove('drag-over')"
+         ondrop="handleDrop(event)">
+      <input type="file" id="videoFile" accept="video/*" onchange="handleFileSelect(this)" />
+      <div class="upload-icon">🎬</div>
+      <div class="upload-label">클릭하거나 파일을 드래그하세요 (.mp4, .mov 등)</div>
+      <div class="upload-filename" id="uploadFilename"></div>
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="step" id="step4" style="display:none">
+    <div class="step-header">
+      <div class="step-num">4</div>
+      <div class="step-title">영상 생성</div>
+    </div>
+    <button class="btn btn-primary" id="generateBtn" onclick="generateVideo()">▶ 영상 생성</button>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-text" id="progressText">처리 중...</div>
+    </div>
+
+    <div class="download-wrap" id="downloadWrap">
+      <a id="downloadLink" href="#" download>⬇ 영상 다운로드</a>
+    </div>
+    <div id="generateNotice"></div>
+  </div>
+</div>
+
+<script>
+  let selectedFile = null;
+  let pollTimer = null;
+
+  // ── 시간 변환 ──────────────────────────────────────────
+  function msToTime(ms) {
+    const m = Math.floor(ms / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    const rem = ms % 1000;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(rem).padStart(3,'0')}`;
+  }
+
+  function timeToMs(t) {
+    // MM:SS.mmm
+    const match = t.trim().match(/^(\d+):(\d+)\.(\d+)$/);
+    if (!match) return null;
+    return parseInt(match[1]) * 60000 + parseInt(match[2]) * 1000 + parseInt(match[3].padEnd(3,'0').slice(0,3));
+  }
+
+  // ── 자막 추출 ─────────────────────────────────────────
+  async function extractSubtitles() {
+    const url = document.getElementById('ytUrl').value.trim();
+    const notice = document.getElementById('extractNotice');
+    const btn = document.getElementById('extractBtn');
+
+    if (!url) { showNotice(notice, '❌ URL을 입력해주세요.', 'error'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>추출 중...';
+    notice.innerHTML = '';
+
+    try {
+      const res = await fetch('/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      });
+      const data = await res.json();
+
+      if (!res.ok) { showNotice(notice, `❌ ${data.error}`, 'error'); return; }
+
+      renderTable(data.lines);
+      document.getElementById('step2').style.display = '';
+      document.getElementById('step3').style.display = '';
+      document.getElementById('step4').style.display = '';
+      showNotice(notice, `✅ ${data.lines.length}줄의 자막을 추출했습니다. 가사를 수정한 뒤 영상을 업로드하세요.`, 'info');
+    } catch (e) {
+      showNotice(notice, `❌ 오류: ${e.message}`, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '자막 추출';
+    }
+  }
+
+  // ── 테이블 렌더링 ─────────────────────────────────────
+  function renderTable(lines) {
+    const tbody = document.getElementById('lyricsBody');
+    tbody.innerHTML = '';
+    lines.forEach((line, i) => addRowData(line.start_ms, line.end_ms, line.text));
+    renumber();
+  }
+
+  function addRowData(startMs, endMs, text) {
+    const tbody = document.getElementById('lyricsBody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="td-num row-num"></td>
+      <td class="td-time"><input class="cell-time" value="${msToTime(startMs)}" placeholder="00:00.000" /></td>
+      <td class="td-time"><input class="cell-time" value="${msToTime(endMs)}" placeholder="00:00.000" /></td>
+      <td class="td-text"><input class="cell-text" value="${escHtml(text)}" placeholder="가사를 입력하세요" /></td>
+      <td class="td-del"><button class="btn btn-danger" onclick="deleteRow(this)">✕</button></td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  function addRow() {
+    const tbody = document.getElementById('lyricsBody');
+    const rows = tbody.querySelectorAll('tr');
+    let startMs = 0, endMs = 5000;
+    if (rows.length > 0) {
+      const lastEnd = rows[rows.length - 1].querySelectorAll('.cell-time')[1].value;
+      const ms = timeToMs(lastEnd);
+      if (ms !== null) { startMs = ms; endMs = ms + 5000; }
+    }
+    addRowData(startMs, endMs, '');
+    renumber();
+  }
+
+  function deleteRow(btn) {
+    btn.closest('tr').remove();
+    renumber();
+  }
+
+  function renumber() {
+    document.querySelectorAll('#lyricsBody .row-num').forEach((el, i) => {
+      el.textContent = i + 1;
+    });
+  }
+
+  function collectLines() {
+    const rows = document.querySelectorAll('#lyricsBody tr');
+    const lines = [];
+    rows.forEach((tr, i) => {
+      const times = tr.querySelectorAll('.cell-time');
+      const text = tr.querySelector('.cell-text').value.trim();
+      const startMs = timeToMs(times[0].value);
+      const endMs = timeToMs(times[1].value);
+      if (startMs === null || endMs === null || !text) return;
+      lines.push({ id: String(i + 1), start_ms: startMs, end_ms: endMs, text });
+    });
+    return lines;
+  }
+
+  // ── 파일 업로드 ─────────────────────────────────────────
+  function handleFileSelect(input) {
+    if (input.files[0]) setFile(input.files[0]);
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('uploadZone').classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f) setFile(f);
+  }
+
+  function setFile(f) {
+    selectedFile = f;
+    document.getElementById('uploadFilename').textContent = `📁 ${f.name}`;
+  }
+
+  // ── 영상 생성 ─────────────────────────────────────────
+  async function generateVideo() {
+    const notice = document.getElementById('generateNotice');
+    const btn = document.getElementById('generateBtn');
+    notice.innerHTML = '';
+
+    const lines = collectLines();
+    if (lines.length === 0) { showNotice(notice, '❌ 가사가 없습니다. 먼저 자막을 추출하고 편집하세요.', 'error'); return; }
+    if (!selectedFile) { showNotice(notice, '❌ 영상 파일을 업로드해주세요.', 'error'); return; }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>업로드 중...';
+
+    const form = new FormData();
+    form.append('video', selectedFile);
+    form.append('lines', JSON.stringify(lines));
+
+    try {
+      const res = await fetch('/generate', { method: 'POST', body: form });
+      const data = await res.json();
+
+      if (!res.ok) { showNotice(notice, `❌ ${data.error}`, 'error'); btn.disabled = false; btn.textContent = '▶ 영상 생성'; return; }
+
+      const jobId = data.job_id;
+      btn.innerHTML = '<span class="spinner"></span>생성 중...';
+      startPolling(jobId);
+    } catch (e) {
+      showNotice(notice, `❌ 오류: ${e.message}`, 'error');
+      btn.disabled = false; btn.textContent = '▶ 영상 생성';
+    }
+  }
+
+  function startPolling(jobId) {
+    const progressWrap = document.getElementById('progressWrap');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    const downloadWrap = document.getElementById('downloadWrap');
+    const notice = document.getElementById('generateNotice');
+    const btn = document.getElementById('generateBtn');
+
+    progressWrap.style.display = '';
+    downloadWrap.style.display = 'none';
+
+    pollTimer = setInterval(async () => {
+      try {
+        const res = await fetch(`/progress/${jobId}`);
+        const data = await res.json();
+
+        const pct = data.progress || 0;
+        progressFill.style.width = `${pct}%`;
+        progressText.textContent = data.message || `${pct}%`;
+
+        if (data.status === 'done') {
+          clearInterval(pollTimer);
+          progressFill.style.width = '100%';
+          progressText.textContent = '완료!';
+          btn.disabled = false; btn.textContent = '▶ 다시 생성';
+          downloadWrap.style.display = '';
+          document.getElementById('downloadLink').href = `/download/${data.filename}`;
+          document.getElementById('downloadLink').download = data.filename;
+        } else if (data.status === 'error') {
+          clearInterval(pollTimer);
+          showNotice(notice, `❌ 오류: ${data.error}`, 'error');
+          progressWrap.style.display = 'none';
+          btn.disabled = false; btn.textContent = '▶ 영상 생성';
+        }
+      } catch (e) {
+        clearInterval(pollTimer);
+        showNotice(notice, `❌ 폴링 오류: ${e.message}`, 'error');
+        btn.disabled = false; btn.textContent = '▶ 영상 생성';
+      }
+    }, 1500);
+  }
+
+  // ── 유틸 ────────────────────────────────────────────────
+  function showNotice(el, msg, type) {
+    el.innerHTML = `<div class="notice ${type}">${msg}</div>`;
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+</script>
+</body>
+</html>

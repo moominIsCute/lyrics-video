@@ -277,9 +277,9 @@ def get_video_info(video_path: str) -> tuple[float, int, int, float]:
 
 
 # ── 메인 파이프라인 ───────────────────────────────────────────────────────────
-def build_karaoke_video(video_path: str, lines: list[dict], output_path: str):
+def build_karaoke_video(video_path: str, lines: list[dict], output_path: str, progress_callback=None):
     duration, width, height, fps = get_video_info(video_path)
-    
+
     display_lines, interludes = calculate_one_line_display(lines)
 
     # 폰트 사이즈 보정
@@ -288,6 +288,9 @@ def build_karaoke_video(video_path: str, lines: list[dict], output_path: str):
     print(f"🎬 영상 정보: {width}x{height} @ {fps:.2f}fps, {duration:.1f}초 (폰트: {font_size}px)")
     print(f"📝 총 {len(lines)}줄의 가사 동기화 데이터 적용")
     print(f"🎸 전주/간주 구간 {len(interludes)}개 감지")
+
+    if progress_callback:
+        progress_callback(0.0, "프레임 생성 중...")
 
     with tempfile.TemporaryDirectory() as tmp:
         frame_dir = Path(tmp) / "frames"
@@ -310,7 +313,12 @@ def build_karaoke_video(video_path: str, lines: list[dict], output_path: str):
 
             if fi % 500 == 0:
                 print(f"  {fi}/{total_frames} ({fi/total_frames*100:.1f}%)")
+                if progress_callback:
+                    ratio = fi / total_frames * 0.85  # 프레임 생성 = 85%
+                    progress_callback(ratio, f"프레임 생성 중... {fi/total_frames*100:.0f}%")
 
+        if progress_callback:
+            progress_callback(0.85, "영상 합성 중...")
         print("🎞  영상 합성 중...")
         subprocess.run(
             [
