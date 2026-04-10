@@ -151,6 +151,9 @@
     }
     input.cell-text:focus { border-color: #FFD700; outline: none; background: #161616; }
 
+    tbody tr.overlap-warn td { background: #2c1010; }
+    tbody tr.overlap-warn input { border-color: #c0392b !important; }
+
     .add-row-btn { margin-top: 12px; }
 
     /* ── UPLOAD ZONE ── */
@@ -468,8 +471,8 @@
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="td-num row-num"></td>
-      <td class="td-time"><input class="cell-time" value="${msToTime(startMs)}" placeholder="00:00.000" /></td>
-      <td class="td-time"><input class="cell-time" value="${msToTime(endMs)}" placeholder="00:00.000" /></td>
+      <td class="td-time"><input class="cell-time" value="${msToTime(startMs)}" placeholder="00:00.000" oninput="checkOverlaps()" /></td>
+      <td class="td-time"><input class="cell-time" value="${msToTime(endMs)}" placeholder="00:00.000" oninput="checkOverlaps()" /></td>
       <td class="td-text"><input class="cell-text" value="${escHtml(text)}" placeholder="가사를 입력하세요" /></td>
       <td class="td-del"><button class="btn btn-danger" onclick="deleteRow(this)">✕</button></td>
     `;
@@ -531,6 +534,34 @@
     document.getElementById('uploadFilename').textContent = `📁 ${f.name}`;
   }
 
+  // ── 겹침 검사 ─────────────────────────────────────────
+  function checkOverlaps() {
+    const rows = Array.from(document.querySelectorAll('#lyricsBody tr'));
+    rows.forEach(tr => tr.classList.remove('overlap-warn'));
+
+    const parsed = rows.map(tr => {
+      const times = tr.querySelectorAll('.cell-time');
+      return {
+        tr,
+        start: timeToMs(times[0].value),
+        end: timeToMs(times[1].value),
+      };
+    });
+
+    const overlapRows = new Set();
+    for (let i = 0; i < parsed.length - 1; i++) {
+      const a = parsed[i], b = parsed[i + 1];
+      if (a.end === null || b.start === null) continue;
+      if (a.end > b.start) {
+        overlapRows.add(a.tr);
+        overlapRows.add(b.tr);
+      }
+    }
+
+    overlapRows.forEach(tr => tr.classList.add('overlap-warn'));
+    return overlapRows.size;
+  }
+
   // ── 영상 생성 ─────────────────────────────────────────
   async function generateVideo() {
     const notice = document.getElementById('generateNotice');
@@ -540,6 +571,12 @@
     const lines = collectLines();
     if (lines.length === 0) { showNotice(notice, '❌ 가사가 없습니다. 먼저 자막을 추출하고 편집하세요.', 'error'); return; }
     if (!selectedFile) { showNotice(notice, '❌ 영상 파일을 업로드해주세요.', 'error'); return; }
+
+    const overlapCount = checkOverlaps();
+    if (overlapCount > 0) {
+      showNotice(notice, `⚠️ 시간이 겹치는 자막이 있어요 (빨간색 행). 수정 후 다시 시도하세요.`, 'error');
+      return;
+    }
 
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>업로드 중...';
