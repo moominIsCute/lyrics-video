@@ -10,7 +10,6 @@ import os
 import re
 import argparse
 import subprocess
-import tempfile
 import platform
 import csv
 import json
@@ -292,50 +291,65 @@ def build_karaoke_video(video_path: str, lines: list[dict], output_path: str, pr
     if progress_callback:
         progress_callback(0.0, "프레임 생성 중...")
 
-    with tempfile.TemporaryDirectory() as tmp:
-        frame_dir = Path(tmp) / "frames"
-        frame_dir.mkdir()
+    total_frames = int(duration * fps) + 1
+    frame_ms_step = 1000 / fps
 
-        total_frames = int(duration * fps) + 1
-        frame_ms_step = 1000 / fps
+    # FFmpeg 파이프 프로세스 시작
+    # 자막 레이어(RGBA raw)를 stdin으로 스트리밍하고, 원본 영상과 overlay 합성
+    ffmpeg_cmd = [
+        "ffmpeg", "-y",
+        # 원본 영상
+        "-i", video_path,
+        # 자막 레이어: stdin에서 rawvideo로 받음
+        "-f", "rawvideo",
+        "-vcodec", "rawvideo",
+        "-pix_fmt", "rgba",
+        "-s", f"{width}x{height}",
+        "-r", str(fps),
+        "-i", "pipe:0",
+        # overlay 합성
+        "-filter_complex", "[0:v][1:v]overlay=0:0",
+        "-c:v", "libx264", "-preset", "fast", "-crf", "18",
+        "-c:a", "copy",
+        output_path,
+    ]
 
-        print(f"🖼  자막 프레임(Wipe 2-Line) 생성 중 (총 {total_frames}프레임)...")
+    print(f"🖼  자막 프레임 스트리밍 중 (총 {total_frames}프레임)...")
+    proc = subprocess.Popen(
+        ffmpeg_cmd,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+    )
+
+    try:
         for fi in range(total_frames):
             current_ms = fi * frame_ms_step
-
             frame_img = make_subtitle_frame(
                 width, height, current_ms,
                 display_lines=display_lines,
                 interludes=interludes,
                 font_size=font_size,
             )
-            frame_img.save(str(frame_dir / f"frame_{fi:06d}.png"))
+            proc.stdin.write(frame_img.tobytes())
 
             if fi % 500 == 0:
                 print(f"  {fi}/{total_frames} ({fi/total_frames*100:.1f}%)")
                 if progress_callback:
-                    ratio = fi / total_frames * 0.85  # 프레임 생성 = 85%
-                    progress_callback(ratio, f"프레임 생성 중... {fi/total_frames*100:.0f}%")
+                    progress_callback(fi / total_frames, f"프레임 생성 중... {fi/total_frames*100:.0f}%")
 
-        if progress_callback:
-            progress_callback(0.85, "영상 합성 중...")
-        print("🎞  영상 합성 중...")
-        subprocess.run(
-            [
-                "ffmpeg", "-y",
-                "-i", video_path,
-                "-framerate", str(fps),
-                "-i", str(frame_dir / "frame_%06d.png"),
-                "-filter_complex", "[0:v][1:v]overlay=0:0",
-                "-c:v", "libx264", "-preset", "fast", "-crf", "18",
-                "-c:a", "copy",
-                output_path,
-            ],
-            check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-        )
+        proc.stdin.close()
+        proc.wait()
+    except BrokenPipeError:
+        stderr = proc.stderr.read().decode(errors="ignore")
+        raise RuntimeError(f"FFmpeg 오류:\n{stderr}")
 
+    if proc.returncode != 0:
+        stderr = proc.stderr.read().decode(errors="ignore")
+        raise RuntimeError(f"FFmpeg 오류 (코드 {proc.returncode}):\n{stderr}")
+
+    if progress_callback:
+        progress_callback(1.0, "완료!")
     print(f"✅ 완료! 출력 파일: {output_path}")
 
 
