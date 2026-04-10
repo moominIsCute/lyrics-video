@@ -1,0 +1,17 @@
+# 영상 출력 파일 (용량 큼)
+outputs/*.mp4
+outputs/*.mov
+outputs/*.avi
+
+# 임시/테스트 이미지
+outputs/*.png
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# macOS
+.DS_Store
