@@ -88,6 +88,52 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/parse-sync", methods=["POST"])
+def parse_sync():
+    if "file" not in request.files:
+        return jsonify({"error": "파일이 필요합니다"}), 400
+
+    f = request.files["file"]
+    filename = f.filename or ""
+    content = f.read().decode("utf-8", errors="ignore")
+
+    # SRT 형식 감지 (-->)
+    if "-->" in content:
+        tmp = UPLOAD_DIR / f"sync_{uuid.uuid4().hex[:8]}.srt"
+        tmp.write_text(content, encoding="utf-8")
+        try:
+            lines = parse_srt(str(tmp))
+        finally:
+            tmp.unlink(missing_ok=True)
+    else:
+        # CSV 형식 (기존 manual_sync.txt)
+        import io, csv as csv_mod
+        lines = []
+        reader = csv_mod.reader(io.StringIO(content))
+        header_skipped = False
+        for row in reader:
+            if not header_skipped:
+                header_skipped = True
+                if row and "시작" in (row[1] if len(row) > 1 else ""):
+                    continue
+            if not row or len(row) < 4:
+                continue
+            try:
+                from karaoke import parse_time_str
+                start_ms = parse_time_str(row[1])
+                end_ms = parse_time_str(row[2])
+                text = row[3].strip().replace("\n", " ")
+                if text:
+                    lines.append({"id": str(len(lines)+1), "start_ms": start_ms, "end_ms": end_ms, "text": text})
+            except Exception:
+                continue
+
+    if not lines:
+        return jsonify({"error": "파일을 파싱하지 못했습니다. CSV 또는 SRT 형식인지 확인하세요."}), 400
+
+    return jsonify({"lines": lines})
+
+
 @app.route("/extract", methods=["POST"])
 def extract():
     data = request.get_json()

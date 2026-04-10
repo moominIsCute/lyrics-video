@@ -219,6 +219,31 @@
 
     .hidden { display: none !important; }
 
+    /* ── TABS ── */
+    .tab-bar {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid #2e2e2e;
+      padding-bottom: 0;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: #666;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 600;
+      margin-bottom: -1px;
+      padding: 8px 16px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn.active { color: #FFD700; border-bottom-color: #FFD700; }
+    .tab-btn:hover:not(.active) { color: #aaa; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
     .spinner {
       display: inline-block;
       width: 14px; height: 14px;
@@ -240,12 +265,36 @@
   <div class="step">
     <div class="step-header">
       <div class="step-num">1</div>
-      <div class="step-title">YouTube URL로 자막 추출</div>
+      <div class="step-title">가사 타이밍 불러오기</div>
     </div>
-    <div class="url-row">
-      <input type="url" id="ytUrl" placeholder="https://www.youtube.com/watch?v=..." />
-      <button class="btn btn-primary" id="extractBtn" onclick="extractSubtitles()">자막 추출</button>
+
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('yt')">YouTube URL</button>
+      <button class="tab-btn" onclick="switchTab('file')">파일 직접 업로드</button>
     </div>
+
+    <!-- 탭: YouTube -->
+    <div class="tab-panel active" id="tab-yt">
+      <div class="url-row">
+        <input type="url" id="ytUrl" placeholder="https://www.youtube.com/watch?v=..." />
+        <button class="btn btn-primary" id="extractBtn" onclick="extractSubtitles()">자막 추출</button>
+      </div>
+    </div>
+
+    <!-- 탭: 파일 업로드 -->
+    <div class="tab-panel" id="tab-file">
+      <div class="upload-zone" id="syncUploadZone"
+           onclick="document.getElementById('syncFile').click()"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleSyncDrop(event)">
+        <input type="file" id="syncFile" accept=".txt,.srt,.csv" onchange="uploadSyncFile(this.files[0])" />
+        <div class="upload-icon">📄</div>
+        <div class="upload-label">CSV 또는 SRT 파일을 클릭하거나 드래그하세요</div>
+        <div class="upload-filename" id="syncFilename"></div>
+      </div>
+    </div>
+
     <div id="extractNotice"></div>
   </div>
 
@@ -328,6 +377,47 @@
     const match = t.trim().match(/^(\d+):(\d+)\.(\d+)$/);
     if (!match) return null;
     return parseInt(match[1]) * 60000 + parseInt(match[2]) * 1000 + parseInt(match[3].padEnd(3,'0').slice(0,3));
+  }
+
+  // ── 탭 전환 ───────────────────────────────────────────
+  function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+      btn.classList.toggle('active', (i === 0 && name === 'yt') || (i === 1 && name === 'file'));
+    });
+    document.getElementById('tab-yt').classList.toggle('active', name === 'yt');
+    document.getElementById('tab-file').classList.toggle('active', name === 'file');
+  }
+
+  // ── 싱크 파일 업로드 ──────────────────────────────────
+  function handleSyncDrop(e) {
+    e.preventDefault();
+    document.getElementById('syncUploadZone').classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f) uploadSyncFile(f);
+  }
+
+  async function uploadSyncFile(file) {
+    if (!file) return;
+    const notice = document.getElementById('extractNotice');
+    document.getElementById('syncFilename').textContent = `📁 ${file.name}`;
+    notice.innerHTML = '';
+
+    const form = new FormData();
+    form.append('file', file);
+
+    try {
+      const res = await fetch('/parse-sync', { method: 'POST', body: form });
+      const data = await res.json();
+      if (!res.ok) { showNotice(notice, `❌ ${data.error}`, 'error'); return; }
+
+      renderTable(data.lines);
+      document.getElementById('step2').style.display = '';
+      document.getElementById('step3').style.display = '';
+      document.getElementById('step4').style.display = '';
+      showNotice(notice, `✅ ${data.lines.length}줄을 불러왔습니다. 가사를 확인하고 영상을 업로드하세요.`, 'info');
+    } catch (e) {
+      showNotice(notice, `❌ 오류: ${e.message}`, 'error');
+    }
   }
 
   // ── 자막 추출 ─────────────────────────────────────────
