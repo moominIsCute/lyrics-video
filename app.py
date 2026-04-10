@@ -17,6 +17,7 @@ import uuid
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request, send_file
+from karaoke import parse_time_str
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 4 * 1024 * 1024 * 1024  # 4GB
@@ -119,7 +120,6 @@ def parse_sync():
             if not row or len(row) < 4:
                 continue
             try:
-                from karaoke import parse_time_str
                 start_ms = parse_time_str(row[1])
                 end_ms = parse_time_str(row[2])
                 text = row[3].strip().replace("\n", " ")

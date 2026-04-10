@@ -72,7 +72,7 @@ def parse_manual_sync(file_path: str) -> list[dict]:
         for row in reader:
             if not header_skipped:
                 # 첫 줄(헤더) 무시 (번호,시작시간... 등)
-                if row and "시작" in row[1]:
+                if row and "시작" in (row[1] if len(row) > 1 else ""):
                     header_skipped = True
                     continue
                 else:
